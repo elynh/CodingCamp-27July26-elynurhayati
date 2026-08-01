@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus Timer PBT – Properties 10 &amp; 11</title>
+  <style>
+    body { font-family: monospace; padding: 1rem 2rem; background: #1a1a2e; color: #e0e0e0; }
+    h1   { color: #a29bfe; }
+    .pass { color: #55efc4; }
+    .fail { color: #ff7675; }
+    .summary { margin-top: 1.5rem; font-size: 1.1rem; }
+    pre  { background: #16213e; padding: 0.5rem 1rem; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Focus Timer – Property-Based Tests</h1>
+  <p>Feature: <strong>todo-life-dashboard</strong></p>
+  <p>Property 10: Timer countdown decrements one second per tick – Validates: Requirements 3.3</p>
+  <p>Property 11: Timer reset always returns to 1500 seconds – Validates: Requirements 3.5, 3.9</p>
+  <p>Unit tests: render, tick, setCompleted, start guard, stop guard, reset</p>
+
+  <!--
+    Minimal DOM stubs that focusTimer interacts with.
+    They must exist before the module is defined so render() and setCompleted()
+    can find their target elements.
+  -->
+  <section id="focus-timer" aria-label="Focus Timer (test)">
+    <p id="timer-display">25:00</p>
+    <div class="timer-controls">
+      <button id="timer-start">Start</button>
+      <button id="timer-stop">Stop</button>
+      <button id="timer-reset">Reset</button>
+    </div>
+  </section>
+
+  <div id="output"></div>
+
+  <!--
+    fast-check loaded from CDN (no build tool required).
+    Pinned to a specific minor version for reproducibility.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/fast-check@3.22.0/lib/bundle/fast-check.min.js"></script>
+
+  <!--
+    Inline focusTimer implementation – kept in sync with js/app.js.
+    Extra test-only helpers are added to the public interface:
+      setRemainingSeconds(n)  — directly set remainingSeconds (test injection)
+      setState(s)             — directly set state (test injection)
+      getIntervalId()         — read intervalId (guard test verification)
+    These helpers are NOT part of the production public API.
+  -->
+  <script>
+    var focusTimer = (function () {
+      'use strict';
+
+      var remainingSeconds = 1500;
+      var state            = 'idle';
+      var intervalId       = null;
+
+      function render() {
+        var minutes = Math.floor(remainingSeconds / 60);
+        var seconds = remainingSeconds % 60;
+        var display = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+        var el = document.getElementById('timer-display');
+        if (el) { el.textContent = display; }
+      }
+
+      function tick() {
+        remainingSeconds -= 1;
+        render();
+        if (remainingSeconds === 0) {
+          setCompleted();
+        }
+      }
+
+      function setCompleted() {
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        state = 'completed';
+        var timerEl = document.getElementById('focus-timer');
+        if (timerEl) { timerEl.classList.add('timer--completed'); }
+      }
+
+      function start() {
+        if (state === 'running') { return; }
+        state      = 'running';
+        intervalId = setInterval(tick, 1000);
+      }
+
+      function stop() {
+        if (state !== 'running') { return; }
+        clearInterval(intervalId);
+        intervalId = null;
+        state      = 'paused';
+      }
+
+      function reset() {
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        remainingSeconds = 1500;
+        state            = 'idle';
+        var timerEl = document.getElementById('focus-timer');
+        if (timerEl) { timerEl.classList.remove('timer--completed'); }
+        render();
+      }
+
+      function init() {
+        render();
+        var startBtn = document.getElementById('timer-start');
+        var stopBtn  = document.getElementById('timer-stop');
+        var resetBtn = document.getElementById('timer-reset');
+        if (startBtn) { startBtn.addEventListener('click', start); }
+        if (stopBtn)  { stopBtn.addEventListener('click', stop);   }
+        if (resetBtn) { resetBtn.addEventListener('click', reset);  }
+      }
+
+      // ---- test-only helpers ------------------------------------------------
+      function setRemainingSeconds(n) { remainingSeconds = n; }
+      function setState(s)            { state = s; }
+      function getIntervalId()        { return intervalId; }
+      // -----------------------------------------------------------------------
+
+      return {
+        init:                init,
+        start:               start,
+        stop:                stop,
+        reset:               reset,
+        tick:                tick,
+        render:              render,
+        setCompleted:        setCompleted,
+        getState:            function () { return state; },
+        getRemainingSeconds: function () { return remainingSeconds; },
+        // test helpers
+        setRemainingSeconds: setRemainingSeconds,
+        setState:            setState,
+        getIntervalId:       getIntervalId
+      };
+    })();
+  </script>
+
+  <script>
+    window.addEventListener('load', function () {
+      var output = document.getElementById('output');
+
+      if (typeof fc === 'undefined') {
+        output.innerHTML = '<p class="fail">ERROR: fast-check failed to load. ' +
+          'Open this file via a local server or check your network connection.</p>';
+        return;
+      }
+
+      var RESULTS = [];
+
+      function pass(name) { RESULTS.push({ name: name, ok: true }); }
+      function fail(name, err) { RESULTS.push({ name: name, ok: false, error: String(err) }); }
+
+      // -----------------------------------------------------------------------
+      // Property 10 – Timer countdown decrements one second per tick
+      // Feature: todo-life-dashboard, Property 10: Timer countdown decrements one second per tick
+      // -----------------------------------------------------------------------
+      try {
+        fc.assert(
+          fc.property(
+            fc.integer({ min: 1, max: 1500 }),
+            function (startSeconds) {
+              focusTimer.reset();
+              focusTimer.setRemainingSeconds(startSeconds);
+              var before = focusTimer.getRemainingSeconds();
+              focusTimer.tick();
+              var after = focusTimer.getRemainingSeconds();
+              return after === before - 1;
+            }
+          ),
+          { numRuns: 100 }
+        );
+        pass('Property 10: Timer countdown decrements one second per tick');
+      } catch (e) {
+        fail('Property 10: Timer countdown decrements one second per tick', e);
+      }
+
+      // -----------------------------------------------------------------------
+      // Property 11 – Timer reset always returns to 1500 seconds and "idle" state
+      // Feature: todo-life-dashboard, Property 11: Timer reset always returns to 1500 seconds
+      // -----------------------------------------------------------------------
+      try {
+        var ALL_STATES = ['idle', 'running', 'paused', 'completed'];
+
+        fc.assert(
+          fc.property(
+            fc.constantFrom.apply(fc, ALL_STATES),
+            fc.integer({ min: 0, max: 1500 }),
+            function (timerState, seconds) {
+              focusTimer.reset();
+              focusTimer.setRemainingSeconds(seconds);
+              focusTimer.setState(timerState);
+              focusTimer.reset();
+              return (
+                focusTimer.getRemainingSeconds() === 1500 &&
+                focusTimer.getState() === 'idle'
+              );
+            }
+          ),
+          { numRuns: 100 }
+        );
+        pass('Property 11: Timer reset always returns to 1500 seconds and "idle" state');
+      } catch (e) {
+        fail('Property 11: Timer reset always returns to 1500 seconds and "idle" state', e);
+      }
+
+      // -----------------------------------------------------------------------
+      // Unit tests
+      // -----------------------------------------------------------------------
+
+      // render() shows "25:00" after reset
+      try {
+        focusTimer.reset();
+        var displayEl = document.getElementById('timer-display');
+        if (!displayEl) { throw new Error('#timer-display not found'); }
+        if (displayEl.textContent !== '25:00') {
+          throw new Error('Expected "25:00", got "' + displayEl.textContent + '"');
+        }
+        pass('Unit: render() shows "25:00" after reset');
+      } catch (e) {
+        fail('Unit: render() shows "25:00" after reset', e);
+      }
+
+      // tick() decrements remainingSeconds
+      try {
+        focusTimer.reset();
+        focusTimer.setRemainingSeconds(60);
+        focusTimer.tick();
+        if (focusTimer.getRemainingSeconds() !== 59) {
+          throw new Error('Expected 59, got ' + focusTimer.getRemainingSeconds());
+        }
+        pass('Unit: tick() decrements remainingSeconds from 60 to 59');
+      } catch (e) {
+        fail('Unit: tick() decrements remainingSeconds from 60 to 59', e);
+      }
+
+      // render() shows "00:00" when remainingSeconds is 0
+      try {
+        focusTimer.reset();
+        focusTimer.setRemainingSeconds(0);
+        focusTimer.render();
+        var displayEl2 = document.getElementById('timer-display');
+        if (displayEl2.textContent !== '00:00') {
+          throw new Error('Expected "00:00", got "' + displayEl2.textContent + '"');
+        }
+        pass('Unit: render() shows "00:00" when remainingSeconds is 0');
+      } catch (e) {
+        fail('Unit: render() shows "00:00" when remainingSeconds is 0', e);
+      }
+
+      // tick() reaching 0 → state="completed", timer--completed class added
+      try {
+        focusTimer.reset();
+        focusTimer.setRemainingSeconds(1);
+        focusTimer.tick(); // 1 → 0, triggers setCompleted()
+        var timerEl = document.getElementById('focus-timer');
+        if (!timerEl) { throw new Error('#focus-timer not found'); }
+        if (!timerEl.classList.contains('timer--completed')) {
+          throw new Error('Expected "timer--completed" class after countdown reaches 0');
+        }
+        if (focusTimer.getState() !== 'completed') {
+          throw new Error('Expected state "completed", got "' + focusTimer.getState() + '"');
+        }
+        if (focusTimer.getRemainingSeconds() !== 0) {
+          throw new Error('Expected remainingSeconds 0, got ' + focusTimer.getRemainingSeconds());
+        }
+        pass('Unit: tick() at 0 sets state="completed" and adds timer--completed class (Req 3.6)');
+      } catch (e) {
+        fail('Unit: tick() at 0 sets state="completed" and adds timer--completed class (Req 3.6)', e);
+      }
+
+      // start() is a no-op when already running (Req 3.7)
+      try {
+        focusTimer.reset();
+        focusTimer.start();
+        var id1 = focusTimer.getIntervalId();
+        focusTimer.start(); // no-op
+        var id2 = focusTimer.getIntervalId();
+        focusTimer.stop();  // clean up interval
+        if (id1 !== id2) {
+          throw new Error('start() while running created a new interval — should be a no-op');
+        }
+        pass('Unit: start() is a no-op when timer is already running (Req 3.7)');
+      } catch (e) {
+        fail('Unit: start() is a no-op when timer is already running (Req 3.7)', e);
+      }
+
+      // stop() is a no-op when paused (Req 3.8)
+      try {
+        focusTimer.reset();
+        focusTimer.start();
+        focusTimer.stop();  // RUNNING → PAUSED
+        var stateBefore = focusTimer.getState();
+        focusTimer.stop();  // no-op
+        var stateAfter = focusTimer.getState();
+        if (stateBefore !== 'paused' || stateAfter !== 'paused') {
+          throw new Error('Expected state to remain "paused", got before="' +
+            stateBefore + '", after="' + stateAfter + '"');
+        }
+        pass('Unit: stop() is a no-op when timer is already paused (Req 3.8)');
+      } catch (e) {
+        fail('Unit: stop() is a no-op when timer is already paused (Req 3.8)', e);
+      }
+
+      // stop() is a no-op when idle (Req 3.8)
+      try {
+        focusTimer.reset(); // idle
+        var stateIdle = focusTimer.getState();
+        focusTimer.stop();  // no-op
+        if (focusTimer.getState() !== 'idle') {
+          throw new Error('Expected state to remain "idle" after stop(), got "' + focusTimer.getState() + '"');
+        }
+        pass('Unit: stop() is a no-op when timer is idle (Req 3.8)');
+      } catch (e) {
+        fail('Unit: stop() is a no-op when timer is idle (Req 3.8)', e);
+      }
+
+      // reset() from completed state removes timer--completed class
+      try {
+        focusTimer.reset();
+        focusTimer.setRemainingSeconds(1);
+        focusTimer.tick();  // → completed
+        focusTimer.reset(); // COMPLETED → IDLE
+        var timerEl2 = document.getElementById('focus-timer');
+        if (timerEl2.classList.contains('timer--completed')) {
+          throw new Error('Expected "timer--completed" class to be removed after reset()');
+        }
+        if (focusTimer.getState() !== 'idle') {
+          throw new Error('Expected state "idle" after reset, got "' + focusTimer.getState() + '"');
+        }
+        if (focusTimer.getRemainingSeconds() !== 1500) {
+          throw new Error('Expected 1500 after reset, got ' + focusTimer.getRemainingSeconds());
+        }
+        pass('Unit: reset() from completed removes timer--completed class and restores idle');
+      } catch (e) {
+        fail('Unit: reset() from completed removes timer--completed class and restores idle', e);
+      }
+
+      // -----------------------------------------------------------------------
+      // Render results
+      // -----------------------------------------------------------------------
+      var passed = RESULTS.filter(function (r) { return r.ok; }).length;
+      var total  = RESULTS.length;
+      var html   = '<ul style="list-style:none;padding:0;">';
+
+      RESULTS.forEach(function (r) {
+        var icon = r.ok ? '✅' : '❌';
+        var cls  = r.ok ? 'pass' : 'fail';
+        html += '<li class="' + cls + '">' + icon + ' ' + r.name;
+        if (!r.ok) {
+          html += '<pre>' + r.error + '</pre>';
+        }
+        html += '</li>';
+      });
+
+      html += '</ul>';
+      html += '<p class="summary ' + (passed === total ? 'pass' : 'fail') + '">' +
+              passed + ' / ' + total + ' tests passed</p>';
+
+      output.innerHTML = html;
+      console.log('[timer.test] ' + passed + '/' + total + ' passed');
+    });
+  </script>
+</body>
+</html>

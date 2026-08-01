@@ -1,0 +1,573 @@
+/* ============================================================
+   To-Do List Life Dashboard
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Custom properties
+   ------------------------------------------------------------ */
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #416d91;
+  --color-primary: #90cadb;
+  --color-success: #4caf50;
+  --color-danger: #f44336;
+  --color-text: #fcfcfc;
+
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+
+  --radius: 0.5rem;
+}
+
+/* ------------------------------------------------------------
+   Reset and base styles
+   ------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: var(--space-lg);
+
+  background-color: var(--color-bg);
+  color: var(--color-text);
+
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------
+   Accessibility
+   ------------------------------------------------------------ */
+
+.sr-only {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------
+   Dashboard grid
+   ------------------------------------------------------------ */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+
+  gap: var(--space-lg);
+
+  margin: 0;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------
+   Widget shells
+   ------------------------------------------------------------ */
+
+.dashboard-grid > section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+
+  padding: var(--space-lg);
+
+  background-color: var(--color-surface);
+
+  border-radius: var(--radius);
+
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ------------------------------------------------------------
+   Greeting Widget
+   ------------------------------------------------------------ */
+
+#greeting-text {
+  margin: 0;
+
+  color: var(--color-primary);
+
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+#clock {
+  margin: 0;
+
+  font-size: 2.25rem;
+  font-weight: 700;
+
+  letter-spacing: 0.05em;
+
+  font-variant-numeric: tabular-nums;
+}
+
+#date-text {
+  margin: 0;
+
+  color: var(--color-text);
+
+  font-size: 0.9rem;
+
+  opacity: 0.8;
+}
+
+/* ------------------------------------------------------------
+   Focus Timer
+   ------------------------------------------------------------ */
+
+#timer-display {
+  margin: 0;
+
+  text-align: center;
+
+  font-size: 3rem;
+  font-weight: 700;
+
+  letter-spacing: 0.04em;
+
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  gap: var(--space-sm);
+}
+
+#focus-timer {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+#focus-timer.timer--completed {
+  background-color: color-mix(
+    in srgb,
+    var(--color-success) 20%,
+    var(--color-surface)
+  );
+
+  border: 2px solid var(--color-success);
+
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+#focus-timer.timer--completed #timer-display {
+  color: var(--color-success);
+}
+
+/* ------------------------------------------------------------
+   To-Do List
+   ------------------------------------------------------------ */
+
+.todo-input-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+#task-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: var(--space-sm);
+
+  margin: 0;
+  padding: 0;
+
+  list-style: none;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+
+  gap: var(--space-sm);
+
+  padding: var(--space-sm) var(--space-md);
+
+  background-color: rgba(255, 255, 255, 0.04);
+
+  border: 1px solid rgba(255, 255, 255, 0.07);
+
+  border-radius: calc(var(--radius) / 2);
+}
+
+.task-text {
+  flex: 1;
+  min-width: 0;
+
+  overflow-wrap: anywhere;
+}
+
+.task-item--complete .task-text {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.task-item--error {
+  border-color: var(--color-danger);
+
+  background-color: color-mix(
+    in srgb,
+    var(--color-danger) 12%,
+    var(--color-surface)
+  );
+
+  animation: task-error-flash 250ms ease;
+}
+
+.task-edit-input {
+  flex: 1;
+
+  width: 100%;
+  min-width: 0;
+}
+
+#todo-empty,
+#links-empty {
+  margin: 0;
+
+  text-align: center;
+
+  font-style: italic;
+
+  opacity: 0.6;
+}
+
+@keyframes task-error-flash {
+  0% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-3px);
+  }
+
+  50% {
+    transform: translateX(3px);
+  }
+
+  75% {
+    transform: translateX(-2px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* ------------------------------------------------------------
+   Quick Links
+   ------------------------------------------------------------ */
+
+.links-input-row {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: var(--space-sm);
+}
+
+#link-error {
+  margin: 0;
+
+  color: var(--color-danger);
+
+  font-size: 0.875rem;
+}
+
+#links-grid {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: var(--space-sm);
+}
+
+.link-item {
+  display: flex;
+  align-items: center;
+
+  max-width: 100%;
+
+  gap: var(--space-sm);
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+
+  max-width: 200px;
+
+  padding: var(--space-sm) var(--space-md);
+
+  overflow: hidden;
+
+  background-color: var(--color-primary);
+
+  color: #ffffff;
+
+  border-radius: var(--radius);
+
+  text-decoration: none;
+
+  font-size: 0.9rem;
+  font-weight: 500;
+
+  transition:
+    background-color 80ms ease,
+    color 80ms ease;
+}
+
+.link-label {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.link-delete {
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------
+   Form controls
+   ------------------------------------------------------------ */
+
+input[type="text"],
+input[type="url"] {
+  flex: 1;
+
+  min-width: 0;
+
+  padding: var(--space-sm) var(--space-md);
+
+  background-color: rgba(255, 255, 255, 0.08);
+
+  color: var(--color-text);
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+
+  border-radius: var(--radius);
+
+  font-family: inherit;
+  font-size: 1rem;
+
+  transition: border-color 80ms ease;
+}
+
+input[type="text"]::placeholder,
+input[type="url"]::placeholder {
+  color: rgba(224, 224, 224, 0.45);
+}
+
+input[type="text"]:focus,
+input[type="url"]:focus {
+  outline: none;
+
+  border-color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------
+   Buttons
+   ------------------------------------------------------------ */
+
+button {
+  cursor: pointer;
+
+  padding: var(--space-sm) var(--space-md);
+
+  background-color: var(--color-primary);
+
+  color: #ffffff;
+
+  border: none;
+  border-radius: var(--radius);
+
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+
+  white-space: nowrap;
+
+  transition:
+    background-color 80ms ease,
+    color 80ms ease;
+}
+
+button:hover {
+  background-color: #c73652;
+}
+
+button:focus-visible,
+input[type="text"]:focus-visible,
+input[type="url"]:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--color-primary);
+
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------
+   To-Do action buttons
+   ------------------------------------------------------------ */
+
+.task-toggle,
+.task-edit,
+.task-delete,
+.link-delete {
+  flex-shrink: 0;
+
+  padding: calc(var(--space-sm) / 2) var(--space-sm);
+
+  font-size: 0.875rem;
+}
+
+.task-toggle {
+  background-color: rgba(255, 255, 255, 0.12);
+
+  color: var(--color-text);
+
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.task-toggle:hover {
+  background-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+
+  border-color: var(--color-success);
+}
+
+.task-item--complete .task-toggle {
+  background-color: color-mix(in srgb, var(--color-success) 25%, transparent);
+
+  border-color: var(--color-success);
+
+  color: var(--color-success);
+}
+
+.task-edit {
+  background-color: rgba(255, 255, 255, 0.15);
+
+  color: var(--color-text);
+}
+
+.task-edit:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.task-delete,
+.link-delete {
+  background-color: var(--color-danger);
+}
+
+.task-delete:hover,
+.link-delete:hover {
+  background-color: #c62828;
+}
+
+/* ------------------------------------------------------------
+   Responsive layout
+   ------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  body {
+    padding: var(--space-md);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .todo-input-row,
+  .links-input-row {
+    flex-direction: column;
+  }
+
+  .todo-input-row input,
+  .todo-input-row button,
+  .links-input-row input,
+  .links-input-row button {
+    width: 100%;
+  }
+
+  .task-item {
+    align-items: flex-start;
+  }
+
+  .task-text,
+  .task-edit-input {
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .task-toggle {
+    order: 1;
+  }
+
+  .task-edit,
+  .task-delete {
+    order: 3;
+  }
+
+  .link-item {
+    width: 100%;
+  }
+
+  .link-btn {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* ------------------------------------------------------------
+   Reduced motion
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+
+    scroll-behavior: auto !important;
+
+    transition-duration: 0.01ms !important;
+  }
+}

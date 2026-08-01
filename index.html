@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>To-Do List Life Dashboard</title>
+
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+
+  <body>
+    <main id="dashboard" class="dashboard-grid">
+      <!-- Greeting Widget -->
+      <section id="greeting-widget" aria-label="Greeting">
+        <p id="greeting-text">Good Morning</p>
+
+        <p id="clock" aria-live="polite">00:00:00</p>
+
+        <p id="date-text">Monday, 28 July 2025</p>
+      </section>
+
+      <!-- Focus Timer -->
+      <section id="focus-timer" aria-label="Focus Timer">
+        <p id="timer-display" aria-live="polite">25:00</p>
+
+        <div class="timer-controls">
+          <button id="timer-start" type="button">Start</button>
+
+          <button id="timer-stop" type="button">Stop</button>
+
+          <button id="timer-reset" type="button">Reset</button>
+        </div>
+      </section>
+
+      <!-- To-Do List -->
+      <section id="todo-list" aria-label="To-Do List">
+        <div class="todo-input-row">
+          <label class="sr-only" for="todo-input"> New task </label>
+
+          <input
+            id="todo-input"
+            type="text"
+            maxlength="200"
+            placeholder="New task…"
+            autocomplete="off"
+          />
+
+          <button id="todo-add" type="button">Add</button>
+        </div>
+
+        <ul id="task-list"></ul>
+
+        <p id="todo-empty" hidden>No tasks yet. Add one above.</p>
+      </section>
+
+      <!-- Quick Links -->
+      <section id="quick-links" aria-label="Quick Links">
+        <div class="links-input-row">
+          <label class="sr-only" for="link-label"> Link label </label>
+
+          <input
+            id="link-label"
+            type="text"
+            maxlength="100"
+            placeholder="Label"
+            autocomplete="off"
+          />
+
+          <label class="sr-only" for="link-url"> Link URL </label>
+
+          <input
+            id="link-url"
+            type="url"
+            maxlength="2048"
+            placeholder="https://…"
+            autocomplete="url"
+          />
+
+          <button id="link-add" type="button">Add</button>
+        </div>
+
+        <p id="link-error" role="alert" hidden></p>
+
+        <div id="links-grid"></div>
+
+        <p id="links-empty" hidden>No quick links yet. Add one above.</p>
+      </section>
+    </main>
+
+    <script defer src="js/app.js"></script>
+  </body>
+</html>

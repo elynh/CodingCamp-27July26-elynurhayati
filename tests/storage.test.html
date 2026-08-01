@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Storage PBT – Property 12</title>
+  <style>
+    body { font-family: monospace; padding: 1rem 2rem; background: #1a1a2e; color: #e0e0e0; }
+    h1   { color: #a29bfe; }
+    .pass { color: #55efc4; }
+    .fail { color: #ff7675; }
+    .summary { margin-top: 1.5rem; font-size: 1.1rem; }
+    pre  { background: #16213e; padding: 0.5rem 1rem; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Storage Helper – Property-Based Tests</h1>
+  <p>Feature: <strong>todo-life-dashboard</strong> | Property 12: Storage get/set round trip</p>
+  <p>Validates: Requirements 7.1, 7.2, 10.1, 10.3</p>
+  <div id="output"></div>
+
+  <!--
+    fast-check loaded from CDN (no build tool required).
+    Pin to a specific minor version for reproducibility.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/fast-check@3.22.0/lib/bundle/fast-check.min.js"></script>
+
+  <!--
+    Expose the storage helper in the global scope so the test file can use it.
+    We re-declare a minimal version here rather than loading the full IIFE (which
+    registers a DOMContentLoaded listener). In real CI this would be extracted to
+    its own module; for the file:// harness this is the simplest correct approach.
+  -->
+  <script>
+    /* Inline storage implementation – kept in sync with js/app.js */
+    var storage = {
+      get: function (key) {
+        try {
+          var raw = localStorage.getItem(key);
+          if (raw === null) { return []; }
+          var data = JSON.parse(raw);
+          if (!Array.isArray(data)) {
+            console.warn('[storage.get] Value for key "' + key + '" is not an array; returning []. Got:', typeof data);
+            return [];
+          }
+          return data;
+        } catch (e) {
+          console.warn('[storage.get] Failed to parse value for key "' + key + '"; returning []. Error:', e);
+          return [];
+        }
+      },
+      set: function (key, data) {
+        try {
+          localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+          if (e instanceof DOMException) {
+            console.error('[storage.set] Failed to write key "' + key + '". DOMException:', e.name, e.message);
+          } else {
+            throw e;
+          }
+        }
+      },
+      remove: function (key) {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          // silent
+        }
+      }
+    };
+  </script>
+
+  <script>
+    // Wait for fast-check to load, then run tests
+    window.addEventListener('load', function () {
+      var output = document.getElementById('output');
+
+      if (typeof fc === 'undefined') {
+        output.innerHTML = '<p class="fail">ERROR: fast-check failed to load. ' +
+          'Open this file via a local server or check your network connection.</p>';
+        return;
+      }
+
+      // Run the test module and collect results
+      var RESULTS = (function runStorageTests() {
+        'use strict';
+
+        var results = [];
+        var TEST_KEY = '__pbt_test_key__';
+
+        function pass(name) { results.push({ name: name, ok: true }); }
+        function fail(name, err) { results.push({ name: name, ok: false, error: String(err) }); }
+
+        // ---------------------------------------------------------------
+        // Property 12 – Storage get/set round trip
+        // Feature: todo-life-dashboard, Property 12: Storage get/set round trip
+        // ---------------------------------------------------------------
+        try {
+          fc.assert(
+            fc.property(
+              fc.array(fc.jsonValue()),
+              function (data) {
+                storage.set(TEST_KEY, data);
+                var result = storage.get(TEST_KEY);
+                return JSON.stringify(result) === JSON.stringify(data);
+              }
+            ),
+            { numRuns: 100 }
+          );
+          pass('Property 12: Storage get/set round trip');
+        } catch (e) {
+          fail('Property 12: Storage get/set round trip', e);
+        } finally {
+          storage.remove(TEST_KEY);
+        }
+
+        // get() on a missing key returns []
+        try {
+          storage.remove('__missing__');
+          var empty = storage.get('__missing__');
+          if (!Array.isArray(empty) || empty.length !== 0) {
+            throw new Error('Expected [] for missing key, got: ' + JSON.stringify(empty));
+          }
+          pass('get() returns [] for missing key');
+        } catch (e) {
+          fail('get() returns [] for missing key', e);
+        }
+
+        // get() on corrupted data returns []
+        try {
+          localStorage.setItem('__corrupted__', 'NOT_VALID_JSON{{{');
+          var corrupted = storage.get('__corrupted__');
+          if (!Array.isArray(corrupted) || corrupted.length !== 0) {
+            throw new Error('Expected [] for corrupted data, got: ' + JSON.stringify(corrupted));
+          }
+          pass('get() returns [] for corrupted JSON');
+        } catch (e) {
+          fail('get() returns [] for corrupted JSON', e);
+        } finally {
+          storage.remove('__corrupted__');
+        }
+
+        // get() on non-array JSON returns []
+        try {
+          localStorage.setItem('__nonarray__', JSON.stringify({ not: 'an array' }));
+          var nonArray = storage.get('__nonarray__');
+          if (!Array.isArray(nonArray) || nonArray.length !== 0) {
+            throw new Error('Expected [] for non-array value, got: ' + JSON.stringify(nonArray));
+          }
+          pass('get() returns [] for non-array JSON value');
+        } catch (e) {
+          fail('get() returns [] for non-array JSON value', e);
+        } finally {
+          storage.remove('__nonarray__');
+        }
+
+        // remove() deletes the key
+        try {
+          storage.set('__remove_test__', [1, 2, 3]);
+          storage.remove('__remove_test__');
+          var afterRemove = storage.get('__remove_test__');
+          if (!Array.isArray(afterRemove) || afterRemove.length !== 0) {
+            throw new Error('Expected [] after remove, got: ' + JSON.stringify(afterRemove));
+          }
+          pass('remove() deletes the key');
+        } catch (e) {
+          fail('remove() deletes the key', e);
+        }
+
+        return results;
+      })();
+
+      // ---------------------------------------------------------------
+      // Render results
+      // ---------------------------------------------------------------
+      var passed = RESULTS.filter(function (r) { return r.ok; }).length;
+      var total  = RESULTS.length;
+      var html   = '<ul style="list-style:none;padding:0;">';
+
+      RESULTS.forEach(function (r) {
+        var icon = r.ok ? '✅' : '❌';
+        var cls  = r.ok ? 'pass' : 'fail';
+        html += '<li class="' + cls + '">' + icon + ' ' + r.name;
+        if (!r.ok) {
+          html += '<pre>' + r.error + '</pre>';
+        }
+        html += '</li>';
+      });
+
+      html += '</ul>';
+      html += '<p class="summary ' + (passed === total ? 'pass' : 'fail') + '">' +
+              passed + ' / ' + total + ' tests passed</p>';
+
+      output.innerHTML = html;
+      console.log('[storage.test] ' + passed + '/' + total + ' passed');
+    });
+  </script>
+</body>
+</html>
